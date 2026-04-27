@@ -4,8 +4,9 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from django.db.models import Q
-from .serializers import PlayerSerializer, GameSerializer
-from .models import Player, Game, Puzzle
+from .models import Player, Game, Puzzle, GameComment, AILearning
+from .serializers import PlayerSerializer, GameSerializer, PuzzleSerializer
+import json
 
 # Simple ELO Delta
 K_FACTOR = 32
@@ -45,17 +46,16 @@ class RecordGameView(APIView):
         white_id = request.data.get('white_player')
         black_id = request.data.get('black_player')
         winner_id = request.data.get('winner')
-        status_game = request.data.get('status', 'completed')
-        pgn = request.data.get('pgn', '')
-        fen = request.data.get('fen', '')
+        status_game = request.data.get('status')
+        pgn = request.data.get('pgn')
+        fen = request.data.get('fen')
 
         if game_id:
             game = Game.objects.get(id=game_id)
+            game.status = status_game
+            game.winner_id = winner_id
             game.pgn = pgn
             game.current_fen = fen
-            game.status = status_game
-            if winner_id:
-                game.winner = Player.objects.get(id=winner_id)
             game.save()
             
             if status_game == 'completed' or status_game == 'draw':
@@ -65,6 +65,13 @@ class RecordGameView(APIView):
                 score_w = 0.5
                 if winner_id == str(white.id): score_w = 1
                 elif winner_id == str(black.id): score_w = 0
+                
+                # AI Learning: If AI (ID 1) is Black and lost
+                if black.id == 1 and score_w == 1:
+                    AILearning.objects.get_or_create(
+                        fen=fen,
+                        defaults={'last_game': game}
+                    )
                 
                 new_elo_w = calculate_elo(white.elo, black.elo, score_w)
                 new_elo_b = calculate_elo(black.elo, white.elo, 1 - score_w)
@@ -82,7 +89,7 @@ class RecordGameView(APIView):
                     white.draws += 1; black.draws += 1
                 white.save(); black.save(); game.save()
 
-            return Response({'message': 'Game updated', 'game_id': game.id})
+            return Response({'message': 'Game updated', 'game_id': game.id, 'white_elo': white.elo if status_game == 'completed' else None})
 
         # Create new game
         white = Player.objects.get(id=white_id)

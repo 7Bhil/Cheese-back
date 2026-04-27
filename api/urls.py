@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     RegisterPlayerView, LoginView, RecordGameView, ProfileView, 
     LeaderboardView, PuzzleListView, OngoingGamesView, GameDetailView, AddCommentView,
-    CreateDuelView
+    CreateDuelView, AIBrainView
 )
 
 urlpatterns = [
@@ -16,4 +16,5 @@ urlpatterns = [
     path('game/<int:pk>/', GameDetailView.as_view(), name='game_detail'),
     path('game/<int:pk>/comment/', AddCommentView.as_view(), name='add_comment'),
     path('create-duel/', CreateDuelView.as_view(), name='create_duel'),
+    path('ai-brain/', AIBrainView.as_view(), name='ai_brain'),
 ]
