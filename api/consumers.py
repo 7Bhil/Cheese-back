@@ -24,30 +24,48 @@ class GameConsumer(AsyncWebsocketConsumer):
     # Receive message from WebSocket
     async def receive(self, text_data):
         text_data_json = json.loads(text_data)
-        move = text_data_json.get('move')
-        fen = text_data_json.get('fen')
-        sender = text_data_json.get('sender')
+        message_type = text_data_json.get('type', 'game_move')
+        
+        if message_type == 'game_move':
+            move = text_data_json.get('move')
+            fen = text_data_json.get('fen')
+            sender = text_data_json.get('sender')
 
-        # Send message to game group
-        await self.channel_layer.group_send(
-            self.game_group_name,
-            {
-                'type': 'game_move',
-                'move': move,
-                'fen': fen,
-                'sender': sender
-            }
-        )
+            # Send message to game group
+            await self.channel_layer.group_send(
+                self.game_group_name,
+                {
+                    'type': 'game_move',
+                    'move': move,
+                    'fen': fen,
+                    'sender': sender
+                }
+            )
+        elif message_type == 'game_comment':
+            comment = text_data_json.get('comment')
+            username = text_data_json.get('username')
+            
+            await self.channel_layer.group_send(
+                self.game_group_name,
+                {
+                    'type': 'game_comment',
+                    'comment': comment,
+                    'username': username
+                }
+            )
 
     # Receive message from game group
     async def game_move(self, event):
-        move = event['move']
-        fen = event['fen']
-        sender = event['sender']
-
-        # Send message to WebSocket
         await self.send(text_data=json.dumps({
-            'move': move,
-            'fen': fen,
-            'sender': sender
+            'type': 'game_move',
+            'move': event['move'],
+            'fen': event['fen'],
+            'sender': event['sender']
+        }))
+
+    async def game_comment(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'game_comment',
+            'comment': event['comment'],
+            'username': event['username']
         }))
